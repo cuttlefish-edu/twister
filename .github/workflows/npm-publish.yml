@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 12
           registry-url: https://npm.pkg.github.com/
-      - run: npx webpack
+      - run: npm install && npx webpack
       - name: action-push
   # You may pin to the exact commit or the version.
   # uses: ludeeus/action-push@0b7c1175655379c008f42bbaf524caa79cf89ec1
