@@ -23,7 +23,10 @@ function replaceRandomExpr(s) {
 	return new Shift.CallExpression({ callee: new Shift.StaticMemberExpression({ object: s, property: "replace" }), arguments: [new Shift.LiteralStringExpression({ value: makeid(10) }), new Shift.LiteralStringExpression({ value: makeid(10) })] })
 }
 function parseExpr(s){
-	return parse(s).statements[0].expression;
+	return parseStmt(s).expression;
+}
+function parseStmt(s){
+	return parse(s).statements[0];
 }
 function s2e(s){
 	return new Shift.CallExpression({callee:new Shift.ArrowExpression({params: new Shift.FormalParameters({items: [],rest: null}),isAsync: false,body: new Shift.FunctionBody({directives: [],statements: s[0] ? s : [s]})}),arguments:[]});
@@ -36,12 +39,12 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 		let ast = parse(u);
 		let sess = refactor(ast);
 		//try{	
-		let sa = () => sess(":statement").append(_ => {
+		let sa = (sess) => sess(":statement").append(_ => {
 			let a = makeid(5,{nn: true});
 			let b = makeid(5);
 			return `let ${a} = "${b}";`
 		})//(`let ${makeid(5)} = "${makeid(5)}";`);
-		sa();
+		sa(sess);
 		sess("VariableDeclarator").forEach(n => sess("VariableDeclarator[name=\"" + n.name + "\"]").rename('_' + makeid(5).split('').join('_')));
 		function splitString(v){
 			if(!v)return v;
@@ -66,10 +69,10 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 			return onLitString(n);
 		});
 		sess("StaticMemberExpression").replace(n=>new Shift.ComputedMemberExpression({object: n.object,expression: onLitString(new Shift.LiteralStringExpression({value: n.property}))}));
-		sa();
+		sa(sess);
 		u = sess.print();
 		//}catch(err){};
-		u = u.replaceAll("\n", "").replaceAll("  "," ").replaceAll("\t"," ");
+		u = u.replaceAll("\n", "").replaceAll("\t"," ").replaceAll("  "," ");
 		return u;
 	}
 	text = dts(text);
