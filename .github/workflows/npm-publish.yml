@@ -20,7 +20,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: readwrite
       packages: write
     steps:
       - uses: actions/checkout@v2
