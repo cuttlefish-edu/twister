@@ -32,7 +32,7 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 	if (level <= 0) return text;
 	function dts(t) {
 		let u = t;
-		u = `try{${u};}finally{}`;
+		u = `try{${u};}finally{try{}finally{}}`;
 		let ast = parse(u);
 		let sess = refactor(ast);
 		//try{	
