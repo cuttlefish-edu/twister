@@ -19,6 +19,9 @@ function splitRandom(s) {
 	v[1] = s.substring(pivot);
 	return v;
 }
+function ra(items){
+	return items[Math.floor(Math.random() * items.length)];
+}
 function replaceRandomExpr(s) {
 	return new Shift.CallExpression({ callee: new Shift.StaticMemberExpression({ object: s, property: "replace" }), arguments: [new Shift.LiteralStringExpression({ value: makeid(10) }), new Shift.LiteralStringExpression({ value: makeid(10) })] })
 }
@@ -39,30 +42,57 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 		let ast = parse(u);
 		let sess = refactor(ast);
 		//try{	
+			let stmts = [];
 		let sa = (sess) => sess(":statement").append(_ => {
 			let a = makeid(5,{nn: true});
 			let b = makeid(5);
-			return `let ${a} = "${b}";`
+			return parseStmt(`let ${a} = "${b}";`)
+		}).append(_ => {
+			if(!opts.dce)return new Shift.BlockStatement({block: new Shift.Block({statements: []})});
+			return new Shift.IfStatement({test: dl(new Shift.LiteralBooleanExpression({value: false})),consequent: ra(stmts),alternate: parseStmt(`eval("");`)});
+		}).append(_ => {
+			let [a,c] = [makeid(5,{nn: true}),makeid(5,{nn: true})];
+			return Math.random() > 0.2 ? new Shift.BlockStatement({block: new Shift.Block({statements: []})}) : new Shift.ExpressionStatement({expression: s2e(parse(`let ${a} = Date.now();debugger;let ${c} = Date.now();n = n || (${c} - ${a}) > ${opts.timeout || 2000};`).statements)})
 		})//(`let ${makeid(5)} = "${makeid(5)}";`);
+		sess(":statement").forEach(n => stmts.push(n));
 		sa(sess);
-		sess("VariableDeclarator").forEach(n => sess("VariableDeclarator[name=\"" + n.name + "\"]").rename('_' + makeid(5).split('').join('_')));
+		sess("VariableDeclarator").forEach(n => (!opts.amitb_trigger || !opts.amitb_trigger.includes(n.name)) && sess("VariableDeclarator[name=\"" + n.name + "\"]").rename('_' + makeid(5).split('').join('_')));
+		function dl(expr){
+			if(!opts.dl)return expr;
+			return new Shift.ConditionalExpression({consequent: expr,test: s2e(parse(`let a = document.location;return "${makeid(5)}" != "${makeid(5)} && a == eval("\"${opts.dl.replaceAll("\\","\\\\",'"',"\\\"")}\"")`).statements),alternate: new Shift.LiteralInfinityExpression({})});
+		}
+		function amitb(expr){
+			if(!opts.amitb_trigger)return expr;
+			if(!expr instanceof Shift.CallExpression)return expr;
+			if(!expr.callee instanceof Shift.IdentifierExpression)return expr;
+			if(!opts.amitb_trigger.includes(expr.callee.name))return expr;
+			return s2e([parseStmt(`let a = Date.now()`),parseStmt('let b;'),new Shift.ExpressionStatement({expression: new Shift.AssignmentExpression({binding: new Shift.BindingIdentifier({name: 'b'}),expression: expr})}),parseStmt(`let c = Date.now()`),parseStmt(`n = n || (c - a) > ${opts.amitb_timeout}`),parseStmt(`return b;`)]);
+		};
+		function amh(expr){
+			if(expr instanceof Shift.AssignmentExpression)return expr;
+			if(expr instanceof Shift.StaticMemberExpression || expr instanceof Shift.ComputedMemberExpression)return expr;
+			if(Math.random() > 0.2)return expr;
+			if(expr instanceof Shift.ObjectExpression)return new Shift.CallExpression({callee: parseExpr(`x=>new Proxy(x,{get: (o,k) => n ? k : o[k]})`),arguments: [expr]});
+			return new Shift.ConditionalExpression({test: parseExpr('!n'),alternate: parseExpr(`(() => {throw 0;})()`),consequent: expr})
+		}
 		function splitString(v){
 			if(!v)return v;
 			let [a, b] = splitRandom(v);
 			let [fa,fb] =[Math.random() > 0.03 ? Math.random() > 0.1 ? x => x : x => splitString(x.value) : onLitString,Math.random() > 0.03 ? Math.random() > 0.1 ? x => x : x => splitString(x.value) : onLitString];
 			if(!a.length)fa = x => x;
 			if(!b.length)fb = x => x;
-			return new Shift.ConditionalExpression({consequent: new Shift.BinaryExpression({
+			return dl(new Shift.ConditionalExpression({consequent: new Shift.BinaryExpression({
 				operator: "+",
 				left: replaceRandomExpr(fa(new Shift.LiteralStringExpression({ value: a }))),
 				right: replaceRandomExpr(fb(new Shift.LiteralStringExpression({ value: b })))
-			}),test: s2e(new Shift.ReturnStatement({expression: parseExpr('true')})),alternate: new Shift.LiteralStringExpression({value: makeid(5)})});
+			}),test: s2e(new Shift.ReturnStatement({expression: parseExpr('true')})),alternate: new Shift.LiteralStringExpression({value: makeid(5)})}));
 		}
 		function onLitString(n){
-			let v = `debugger;"${n.value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("\n", "\\n")}"`;
+			let v = `"${n.value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("\n", "\\n")}"`;
 			return new Shift.CallExpression({
 				arguments: [
-					splitString(v)], callee: new Shift.IdentifierExpression({ name: 'eval' })
+					splitString(v)
+					], callee: dl(new Shift.IdentifierExpression({ name: 'eval' }))
 			});
 		}
 		sess("LiteralStringExpression").replace(n => {
@@ -70,9 +100,13 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 		});
 		sess("StaticMemberExpression").replace(n=>new Shift.ComputedMemberExpression({object: n.object,expression: onLitString(new Shift.LiteralStringExpression({value: n.property}))}));
 		sa(sess);
+		sess(":expression").replace(amh);
+		sess("Script > :statement").first().prepend(`let n=false;`);
+		sess(":expression").replace(amitb);
+		sess("VariableDeclarator").forEach(n => sess("VariableDeclarator[name=\"" + n.name + "\"]").rename('_' + makeid(5).split('').join('_')));
 		u = sess.print();
 		//}catch(err){};
-		u = u.replaceAll("\n", "").replaceAll("\t"," ").replaceAll("  "," ");
+		u = u.replaceAll("\n", ";").replaceAll("\t"," ").replaceAll("  "," ");
 		return u;
 	}
 	text = dts(text);
@@ -164,7 +198,7 @@ export function jjencode(gv, text, level = 1, opts = {}) {
 	for (let i = 0; i < 3; i++) {
 		let id1 = makeid(5);
 		let id2 = makeid(5);
-		r = dts(`let _ = "${r.split('').reverse().join('').replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("\n", "\\n").replaceAll("noitcnuf nruter", "!a)").replaceAll("romCh", "!b)").replaceAll("ecalper", "!d)").replaceAll(")", ")" + id1).replaceAll("}", "}" + id2)}".replaceAll("${id1}","").replaceAll("${id2}","").replaceAll("!d)","ecalper").replaceAll("!b)","romCh").replaceAll("!a)","noitcnuf nruter").split('').reverse().join('');eval(_)`);
+		r = dts(`let _ = "${((opts.deno ? `data:text/javascript;charset=utf-8,`: '') + r).split('').reverse().join('').replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("\n", "\\n").replaceAll("noitcnuf nruter", "!a)").replaceAll("romCh", "!b)").replaceAll("ecalper", "!d)").replaceAll(")", ")" + id1).replaceAll("}", "}" + id2)}".replaceAll("${id1}","").replaceAll("${id2}","").replaceAll("!d)","ecalper").replaceAll("!b)","romCh").replaceAll("!a)","noitcnuf nruter").split('').reverse().join('');${opts.deno ? 'await import' : 'eval'}(_)`);
 	};
 	return jjencode(gv + '_next', r, level - 1, opts);
 }

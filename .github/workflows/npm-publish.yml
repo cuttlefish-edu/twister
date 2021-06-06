@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 12
           registry-url: https://npm.pkg.github.com/
-      - run: npm install && npx webpack && npx babel --plugins transform-commonjs-es2015-modules dist/main.js
+      - run: npm install && npx webpack
       - name: GitHub Push
   # You may pin to the exact commit or the version.
   # uses: ad-m/github-push-action@40bf560936a8022e68a3c00e7d2abefaf01305a6
