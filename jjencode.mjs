@@ -1,7 +1,7 @@
-const Shift = require('shift-ast');
-const parse = require('shift-parser').default;
-const parser = require('shift-parser');
-const { refactor } = require('shift-refactor');
+import Shift from 'shift-ast';
+import parser from 'shift-parser'
+import { refactor } from 'shift-refactor';
+let parse = parser.parseScript;
 function makeid(length,opts={}) {
 	var result = [];
 	var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' + (!opts.nn && '0123456789') + (!opts.eo && 'АБЦДЕФГЧИЙКЛМНОПЯРСТУВЖХЫЗШЩЭЮЁЬЪабцдефгчийклмнопярстувжхызшщэюёьъ');
@@ -28,7 +28,7 @@ function parseExpr(s){
 function s2e(s){
 	return new Shift.CallExpression({callee:new Shift.ArrowExpression({params: new Shift.FormalParameters({items: [],rest: null}),isAsync: false,body: new Shift.FunctionBody({directives: [],statements: s[0] ? s : [s]})}),arguments:[]});
 }
-function jjencode(gv, text, level = 1, opts = {}) {
+export function jjencode(gv, text, level = 1, opts = {}) {
 	if (level <= 0) return text;
 	function dts(t) {
 		let u = t;
@@ -164,10 +164,4 @@ function jjencode(gv, text, level = 1, opts = {}) {
 		r = dts(`let _ = "${r.split('').reverse().join('').replaceAll("\\", "\\\\").replaceAll("\"", "\\\"").replaceAll("\n", "\\n").replaceAll("noitcnuf nruter", "!a)").replaceAll("romCh", "!b)").replaceAll("ecalper", "!d)").replaceAll(")", ")" + id1).replaceAll("}", "}" + id2)}".replaceAll("${id1}","").replaceAll("${id2}","").replaceAll("!d)","ecalper").replaceAll("!b)","romCh").replaceAll("!a)","noitcnuf nruter").split('').reverse().join('');eval(_)`);
 	};
 	return jjencode(gv + '_next', r, level - 1, opts);
-}
-
-exports.jjencode = jjencode;
-exports.apply = c => {
-	let { RawSource } = require('webpack-sources');
-	c.hooks.emit.tap('jjsencode', cc => cc.getAssets().forEach(a => cc.updateAsset(a.name, b => { console.log(b.source()); return b.source() && new RawSource(jjencode('$', b.source())) || b }, a2 => a2)));
 }

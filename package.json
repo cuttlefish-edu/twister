@@ -20,5 +20,8 @@
     "shift-ast": "^6.1.0",
     "shift-parser": "^7.0.3",
     "shift-refactor": "^2.0.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.38.1"
   }
 }
